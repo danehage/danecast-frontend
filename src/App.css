@@ -160,23 +160,25 @@ body {
 
 .remove-button {
   position: absolute;
-  top: -12px;
-  right: -12px;
-  background-color: white;
-  color: #4a5568;
-  border: 1px solid #ddd;
+  top: 5px;
+  right: 5px;
+  background-color: #ef4444; /* Red background */
+  color: white;
+  border: 2px solid white; /* White border to make it pop */
   border-radius: 50%;
-  width: 24px;
-  height: 24px;
+  width: 28px; /* Larger size */
+  height: 28px; /* Larger size */
   display: flex;
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  z-index: 101;
+  z-index: 101; /* Ensure it's on top of resize handles */
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.2s;
+  transform: scale(0.8);
 }
 
 .watermark-item-wrapper:hover .remove-button {
   opacity: 1;
+  transform: scale(1);
 }
