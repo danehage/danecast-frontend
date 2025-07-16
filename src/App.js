@@ -1,7 +1,7 @@
 // App.js
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useParams, Navigate } from 'react-router-dom';
+import { Routes, Route, useParams, Navigate } from 'react-router-dom';
 import { Rnd } from 'react-rnd';
 import { X } from 'lucide-react';
 import { db } from './firebase';
@@ -9,54 +9,26 @@ import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 
 import './App.css';
 
-/**
- * Extracts the event ID from the subdomain of the current URL.
- * e.g., "12345.danecast.net" -> "12345"
- * Returns null if no valid subdomain is found.
- */
-function getEventIdFromSubdomain() {
-  const hostnameParts = window.location.hostname.split('.');
-  // Check if there is a subdomain (e.g., event-id.danecast.net)
-  if (hostnameParts.length >= 3) {
-    const subdomain = hostnameParts[0];
-    // Avoid matching 'www' or the main domain itself
-    if (subdomain !== 'www' && subdomain !== 'danecast') {
-      return subdomain;
-    }
-  }
-  return null; // Return null if no specific event subdomain
-}
-
-
-// --- Main App Component (Router) ---
+// --- Main App Component (Router is now in index.js) ---
 function App() {
-  const eventId = getEventIdFromSubdomain();
-
-  if (!eventId) {
-    return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
-        <h1>Welcome to Danecast</h1>
-        <p>Please use a specific event URL (e.g., 12345.danecast.net) to access the studio.</p>
-      </div>
-    );
-  }
-
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          {/* The root of the subdomain is the admin page */}
-          <Route path="/" element={<AdminPage eventId={eventId} />} />
-          {/* The /watch path is the public viewer page */}
-          <Route path="/watch" element={<ViewerPage eventId={eventId} />} />
-        </Routes>
-      </div>
-    </Router>
+    <div className="App">
+      <Routes>
+        {/* Redirect to a sample event page for demonstration */}
+        <Route path="/" element={<Navigate to="/event/sample-event/admin" replace />} />
+        {/* The new path-based routes */}
+        <Route path="/event/:eventId/admin" element={<AdminPage />} />
+        <Route path="/event/:eventId/watch" element={<ViewerPage />} />
+      </Routes>
+    </div>
   );
 }
 
 // --- Admin Page Component ---
-function AdminPage({ eventId }) {
+function AdminPage() {
+  // Get the eventId from the URL path
+  const { eventId } = useParams();
+
   const [name, setName] = useState('John Doe');
   const [email, setEmail] = useState('john.doe@example.com');
   const [ipAddress, setIpAddress] = useState('');
@@ -74,7 +46,7 @@ function AdminPage({ eventId }) {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedItemId]);
+  }, [selectedItemId, items]); // Added items to dependency array
 
   useEffect(() => {
     if (!eventId) return;
@@ -83,7 +55,7 @@ function AdminPage({ eventId }) {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setItems(data.items || []);
-        setName(data.name || 'John Doe');
+        setName(data.vimeoEventName || data.name || 'John Doe');
         setEmail(data.email || 'john.doe@example.com');
       } else {
         console.log("No such document! Creating one for event:", eventId);
@@ -101,6 +73,7 @@ function AdminPage({ eventId }) {
         name: newName,
         email: newEmail,
     };
+    // Note: We don't want to overwrite the vimeoEventName field here
     setDoc(eventDocRef, dataToSave, { merge: true }).catch(error => {
         console.error("Error writing document: ", error);
     });
@@ -164,15 +137,16 @@ function AdminPage({ eventId }) {
       />
       <LivestreamView
         items={items} sourceData={{ name, email, ipAddress }} updateItem={updateItem}
-        removeItem={removeItem} selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId}
-        isAdmin={true} eventId={eventId}
+        removeItem={removeItem} selectedItemId={selectedItemId}
+        setSelectedItemId={setSelectedItemId} isAdmin={true}
       />
     </>
   );
 }
 
 // --- Viewer Page Component ---
-function ViewerPage({ eventId }) {
+function ViewerPage() {
+    const { eventId } = useParams();
     const [items, setItems] = useState([]);
     const [sourceData, setSourceData] = useState({ name: '', email: '', ipAddress: 'Unavailable' });
 
@@ -193,10 +167,11 @@ function ViewerPage({ eventId }) {
 
     return (
         <LivestreamView
-            items={items} sourceData={sourceData} isAdmin={false} eventId={eventId}
+            items={items} sourceData={sourceData} isAdmin={false}
         />
     );
 }
+
 
 // --- Admin Panel Component ---
 function AdminPanel({ name, setName, email, setEmail, ipAddress, addItem, selectedItem, updateItem }) {
@@ -244,17 +219,17 @@ function AdminPanel({ name, setName, email, setEmail, ipAddress, addItem, select
           <h3>Editing Item</h3>
            <div className="control-group">
             <label htmlFor="rotation">Rotation ({selectedItem.rotation}°)</label>
-            <input type="range" id="rotation" min="-180" max="180" value={selectedItem.rotation}
+            <input type="range" id="rotation" min="-180" max="180" value={selectedItem.rotation || 0}
               onChange={(e) => handleItemPropertyChange('rotation', e.target.value)} className="slider" />
           </div>
           <div className="control-group">
             <label htmlFor="fontSize">Font Size ({selectedItem.fontSize}px)</label>
-            <input type="range" id="fontSize" min="10" max="200" value={selectedItem.fontSize}
+            <input type="range" id="fontSize" min="10" max="200" value={selectedItem.fontSize || 22}
               onChange={(e) => handleItemPropertyChange('fontSize', e.target.value)} className="slider" />
           </div>
            <div className="control-group">
-            <label htmlFor="opacity">Opacity ({Math.round(selectedItem.opacity * 100)}%)</label>
-            <input type="range" id="opacity" min="0" max="1" step="0.01" value={selectedItem.opacity}
+            <label htmlFor="opacity">Opacity ({Math.round((selectedItem.opacity || 1) * 100)}%)</label>
+            <input type="range" id="opacity" min="0" max="1" step="0.01" value={selectedItem.opacity || 1}
               onChange={(e) => handleItemPropertyChange('opacity', e.target.value)} className="slider" />
           </div>
         </div>
@@ -264,8 +239,9 @@ function AdminPanel({ name, setName, email, setEmail, ipAddress, addItem, select
 }
 
 // --- Reusable Livestream View Component ---
-function LivestreamView({ items, sourceData, updateItem, removeItem, selectedItemId, setSelectedItemId, isAdmin, eventId }) {
-  const [vimeoEventId, setVimeoEventId] = useState(eventId); // Use the eventId from the subdomain by default
+function LivestreamView({ items, sourceData, updateItem, removeItem, selectedItemId, setSelectedItemId, isAdmin }) {
+  const { eventId } = useParams();
+  const [vimeoEventId, setVimeoEventId] = useState(eventId); // Use the eventId from the URL by default
 
   useEffect(() => {
     if (!eventId) return;
